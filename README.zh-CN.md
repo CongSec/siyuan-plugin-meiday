@@ -2,24 +2,25 @@
 
 [English](./README.md)
 
-一个把 [MeiDay](https://task.congsec.cn) 任务管理嵌入思源笔记的插件：在思源**右侧边栏**停靠一个 MeiDay 面板，点右侧栏的图标即可展开，面板内就是完整的 MeiDay 界面，数据通过远程 FastAPI 后端 `https://task.congsec.cn` 读写。
+一个把 [MeiDay](https://task.congsec.cn) 任务管理嵌入思源笔记的插件：在思源**右侧边栏**放一个 MeiDay 图标，点击即**弹出 MeiDay 窗口**，数据通过远程 FastAPI 后端 `https://task.congsec.cn` 读写。
 
 > 本插件是 MeiDay 前端（Vue 3 + Vite）的思源封装，后端并未打包进插件，而是连接公网后端 `https://task.congsec.cn`。
 
 ## 功能
 
-- 右侧边栏图标一键展开/收起 MeiDay 任务管理面板
+- 右侧边栏图标，点击弹出 MeiDay 窗口（弹窗式，不占用侧栏空间）
 - 前端以单文件构建打包进插件，在隔离的 iframe 中渲染
 - 登录态保存在 iframe 的 localStorage（与思源同源），重启思源后保持登录
 - 按集市规范制作：`plugin.json`、`icon.png`、`preview.png`、README、`package.zip`
 
-## 面板位置 / 大小调整
+## 弹窗大小调整
 
-改 `src/index.ts` 顶部的三个常量后重新构建、重启思源即可：
+改 `src/index.ts` 顶部的两个常量后重新构建、重启思源即可：
 
-- `DOCK_POSITION`：停靠位置，如 `"RightTop"`（右上）、`"RightBottom"`（右下）、`"LeftTop"`（左上）、`"LeftBottom"`（左下）
-- `DOCK_WIDTH`：面板宽度（px），如 `420`
-- `DOCK_SHOW`：`true` = 启动思源后自动展开；`false` = 点右侧栏图标才展开
+- `DIALOG_WIDTH`：弹窗宽度，CSS 长度，如 `"940px"` / `"80vw"`
+- `DIALOG_HEIGHT`：弹窗高度，CSS 长度，如 `"72vh"` / `"600px"`
+
+注意：思源会把弹窗限制在视口宽度的 88% 以内（`max-width: 88vw`），太宽会被自动收窄，属正常现象。
 
 ## 环境要求
 
@@ -32,7 +33,7 @@
 1. 从最新 [release](../../releases) 下载 `package.zip`。
 2. 思源内进入 **设置 → 集市 → 插件**，选择"导入"并选中 `package.zip`；或把解压后的插件目录放到 `{工作空间}/data/plugins/meiday-siyuan-plugin`。
 3. 重启思源，在插件列表启用 **MeiDay**。
-4. 点击**右侧边栏**的 MeiDay 图标即可展开面板。
+4. 点击**右侧边栏**的 MeiDay 图标，即可弹出 MeiDay 窗口。
 
 ## 后端 CORS（必须配置）
 

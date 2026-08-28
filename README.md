@@ -2,24 +2,25 @@
 
 [中文说明](./README.zh-CN.md)
 
-A SiYuan plugin that embeds the [MeiDay](https://task.congsec.cn) task manager into your note-taking workflow. MeiDay lives in a **dock panel on the right sidebar** — click the sidebar icon to expand it, and the full MeiDay UI appears, talking to your remote FastAPI backend at `https://task.congsec.cn`.
+A SiYuan plugin that embeds the [MeiDay](https://task.congsec.cn) task manager into your note-taking workflow. A MeiDay icon sits in the **right sidebar**; click it to open the **MeiDay window (popup dialog)**, which talks to your remote FastAPI backend at `https://task.congsec.cn`.
 
 > This plugin is the SiYuan packaging of the MeiDay frontend (Vue 3 + Vite). The backend is not bundled — it connects to the public backend at `https://task.congsec.cn`.
 
 ## Features
 
-- One-click expand/collapse of the MeiDay task manager via a right-sidebar dock icon
+- Right-sidebar icon; click to open the MeiDay popup window (dialog, no sidebar space used)
 - The frontend is bundled into the plugin (single-file build), rendered in an isolated iframe
 - Login state is kept in the iframe's localStorage (same origin as SiYuan), so you stay logged in between sessions
 - Marketplace-ready structure: `plugin.json`, `icon.png`, `preview.png`, README and `package.zip`
 
-## Adjusting the dock panel position / size
+## Adjusting the dialog size
 
-Edit the three constants at the top of `src/index.ts`, then rebuild and restart SiYuan:
+Edit the two constants at the top of `src/index.ts`, then rebuild and restart SiYuan:
 
-- `DOCK_POSITION`: dock location, e.g. `"RightTop"`, `"RightBottom"`, `"LeftTop"`, `"LeftBottom"`
-- `DOCK_WIDTH`: panel width in px, e.g. `420`
-- `DOCK_SHOW`: `true` = auto-expand on startup; `false` = expand only when clicking the sidebar icon
+- `DIALOG_WIDTH`: dialog width, a CSS length such as `"940px"` / `"80vw"`
+- `DIALOG_HEIGHT`: dialog height, a CSS length such as `"72vh"` / `"600px"`
+
+Note: SiYuan caps dialogs at 88% of the viewport width (`max-width: 88vw`), so extra-wide values get shrunk on narrow screens — that is normal.
 
 ## Requirements
 
@@ -32,7 +33,7 @@ Edit the three constants at the top of `src/index.ts`, then rebuild and restart 
 1. Download the `package.zip` from the latest [release](../../releases).
 2. In SiYuan, go to **Settings → Marketplace**, click the **Plugins** tab, then choose **Import / 导入** and select the downloaded `package.zip`, or copy the extracted plugin folder into `{workspace}/data/plugins/meiday-siyuan-plugin`.
 3. Restart SiYuan, then enable **MeiDay** in the plugin list.
-4. Click the MeiDay icon in the **right sidebar** to expand the panel.
+4. Click the MeiDay icon in the **right sidebar** to open the MeiDay window.
 
 ## Backend CORS (required)
 
