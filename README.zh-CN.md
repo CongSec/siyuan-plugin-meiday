@@ -31,7 +31,7 @@
 ## 安装
 
 1. 从最新 [release](../../releases) 下载 `package.zip`。
-2. 思源内进入 **设置 → 集市 → 插件**，选择"导入"并选中 `package.zip`；或把解压后的插件目录放到 `{工作空间}/data/plugins/meiday-siyuan-plugin`。
+2. 思源内进入 **设置 → 集市 → 插件**，选择"导入"并选中 `package.zip`；或把解压后的插件目录放到 `{工作空间}/data/plugins/siyuan-plugin-meiday`。
 3. 重启思源，在插件列表启用 **MeiDay**。
 4. 点击**右侧边栏**的 MeiDay 图标，即可弹出 MeiDay 窗口。
 
@@ -64,11 +64,11 @@ npm run build                   # 产出 dist/ 与 package.zip
 
 ## 上架社区集市
 
-1. 推送到 `https://github.com/congsec/meiday-siyuan-plugin`。
+1. 推送到 `https://github.com/CongSec/siyuan-plugin-meiday`。
 2. 创建 GitHub **release**，Tag 版本 `v0.1.0`，附件上传 `package.zip`。
 3. 向 [siyuan-note/bazaar](https://github.com/siyuan-note/bazaar) 提 PR，在 `plugins.txt` 增加一行：
    ```
-   congsec/meiday-siyuan-plugin
+   CongSec/siyuan-plugin-meiday
    ```
 4. 等待 PR 校验通过并合并，集市索引会自动更新。
 

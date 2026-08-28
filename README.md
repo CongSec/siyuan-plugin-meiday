@@ -31,7 +31,7 @@ Note: SiYuan caps dialogs at 88% of the viewport width (`max-width: 88vw`), so e
 ## Install
 
 1. Download the `package.zip` from the latest [release](../../releases).
-2. In SiYuan, go to **Settings → Marketplace**, click the **Plugins** tab, then choose **Import / 导入** and select the downloaded `package.zip`, or copy the extracted plugin folder into `{workspace}/data/plugins/meiday-siyuan-plugin`.
+2. In SiYuan, go to **Settings → Marketplace**, click the **Plugins** tab, then choose **Import / 导入** and select the downloaded `package.zip`, or copy the extracted plugin folder into `{workspace}/data/plugins/siyuan-plugin-meiday`.
 3. Restart SiYuan, then enable **MeiDay** in the plugin list.
 4. Click the MeiDay icon in the **right sidebar** to open the MeiDay window.
 
@@ -64,11 +64,11 @@ npm run build                   # produces dist/ and package.zip
 
 ## Publish to the community bazaar
 
-1. Push this repo to `https://github.com/congsec/meiday-siyuan-plugin`.
+1. Push this repo to `https://github.com/CongSec/siyuan-plugin-meiday`.
 2. Create a GitHub **release** with tag `v0.1.0` and attach the `package.zip`.
 3. Open a PR to [siyuan-note/bazaar](https://github.com/siyuan-note/bazaar) adding one line to `plugins.txt`:
    ```
-   congsec/meiday-siyuan-plugin
+   CongSec/siyuan-plugin-meiday
    ```
 4. Wait for the PR checks to pass and merge; the bazaar index updates automatically.
 
