@@ -22,6 +22,9 @@ const DIALOG_HEIGHT = "72vh";
  * 说明：思源的右侧边栏图标点击会默认展开「停靠面板」；这里改为只放一个图标，
  *       点击直接弹窗，不占右侧栏空间（符合“图标在侧栏、打开是弹窗”的诉求）。
  *       如果以后想换成「侧边栏停靠面板」，改回 addDock 方案即可（见 README）。
+ *
+ * 缓存说明：iframe 常驻（关闭弹窗只隐藏、不销毁），从 OSS 拉下来的数据
+ *       会一直留在内存里，再次打开是秒开，不再重新加载。
  */
 export default class MeiDayPlugin extends Plugin {
     private dialog: Dialog | null = null;
@@ -101,22 +104,78 @@ export default class MeiDayPlugin extends Plugin {
         }
     }
 
+    /**
+     * 打开 MeiDay 弹窗。
+     * 缓存策略：iframe 只在第一次创建，之后关闭弹窗只是隐藏（hideDialog），
+     * 再次打开直接显示（showDialog），iframe 内的 OSS 数据全部保留、秒开。
+     */
     private openDialog() {
-        // 已打开且仍在文档中则复用；否则重建（关闭后 element 会被移除）
-        if (this.dialog) {
-            if (this.dialog.element && document.body.contains(this.dialog.element)) {
-                return;
-            }
-            this.dialog = null;
+        // 弹窗若已存在且仍在文档中 -> 直接显示，不重建 iframe
+        if (this.dialog && this.dialog.element && document.body.contains(this.dialog.element)) {
+            this.showDialog();
+            return;
         }
+        // 弹窗不存在或已被外部销毁 -> 重建（blob URL 复用，不重复打包）
+        this.dialog = null;
         const objectUrl = this.ensureObjectUrl();
         const dialog = new Dialog({
             title: "MeiDay",
             content: `<div class="meiday__wrap"><iframe class="meiday__iframe" src="${objectUrl}"></iframe></div>`,
             width: DIALOG_WIDTH,
             height: DIALOG_HEIGHT,
+            disableClose: true, // 阻止思源默认的「销毁」式关闭，让 iframe 常驻缓存
         });
+        // 接管右上角关闭按钮与遮罩：都改为「隐藏弹窗」而非销毁，从而保留 iframe 内的数据缓存
+        try {
+            // 1) 右上角 X：disableClose 会隐藏它，这里恢复显示并绑定「隐藏」
+            const close = dialog.element.querySelector<HTMLElement>(".b3-dialog__close");
+            if (close) {
+                close.classList.remove("fn__none");
+                const newClose = close.cloneNode(true) as HTMLElement; // 克隆以丢弃原关闭事件
+                const parent = close.parentNode;
+                if (parent) {
+                    parent.replaceChild(newClose, close);
+                }
+                newClose.addEventListener("click", (e: MouseEvent) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    this.hideDialog();
+                });
+            }
+            // 2) 遮罩：点击同样「隐藏」而非销毁
+            const scrim = dialog.element.querySelector<HTMLElement>(".b3-dialog__scrim");
+            if (scrim) {
+                scrim.addEventListener("click", (e: MouseEvent) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    this.hideDialog();
+                });
+            }
+        } catch (e) {
+            console.error(`[${this.name}] override close button failed`, e);
+        }
         this.dialog = dialog;
+    }
+
+    /** 显示弹窗（复用常驻 iframe，秒开） */
+    private showDialog(): void {
+        const dlg = this.dialog;
+        if (!dlg || !dlg.element) {
+            return;
+        }
+        document.body.append(dlg.element); // 移到 body 末尾，确保显示在最上层
+        dlg.element.style.display = "";
+        dlg.element.classList.add("b3-dialog--open");
+    }
+
+    /** 隐藏弹窗（不销毁 iframe，保留 OSS 数据缓存） */
+    private hideDialog(): void {
+        const dlg = this.dialog;
+        if (!dlg || !dlg.element) {
+            return;
+        }
+        dlg.element.classList.remove("b3-dialog--open");
+        dlg.element.style.display = "none";
     }
 
     async onunload() {
@@ -138,7 +197,7 @@ export default class MeiDayPlugin extends Plugin {
             URL.revokeObjectURL(this.objectUrl);
             this.objectUrl = null;
         }
-        // 关闭弹窗
+        // 真正销毁弹窗（插件卸载时释放 iframe）
         if (this.dialog) {
             try {
                 this.dialog.destroy();

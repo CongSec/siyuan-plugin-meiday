@@ -9,10 +9,10 @@
   "disabledInPublish": false,
   "displayName": {
     "default": "MeiDay",
-    "zh-CN": "MeiDay（任务管理）"
+    "zh-CN": "MeiDay（每日任务日记管理）"
   },
   "description": {
-    "default": "Embed the MeiDay task manager into SiYuan, connecting to your backend at https://task.congsec.cn.",
+    "default": "A lightweight, privacy-preserving task diary management system with enhanced security",
     "zh-CN": "在思源笔记中嵌入 MeiDay 任务管理，连接你的后端 https://task.congsec.cn。"
   },
   "readme": {
@@ -22,5 +22,5 @@
   "funding": {
     "github": "congsec"
   },
-  "keywords": ["任务管理", "待办", "todo", "task", "meiday"]
+  "keywords": ["任务管理", "待办", "todo", "task", "meiday", "日记", "加密", "隐私"]
 }
