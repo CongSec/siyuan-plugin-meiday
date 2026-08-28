@@ -1,0 +1,26 @@
+{
+  "name": "meiday-siyuan-plugin",
+  "author": "congsec",
+  "url": "https://github.com/congsec/meiday-siyuan-plugin",
+  "version": "0.1.0",
+  "minAppVersion": "3.0.0",
+  "backends": ["all"],
+  "frontends": ["all"],
+  "disabledInPublish": false,
+  "displayName": {
+    "default": "MeiDay",
+    "zh-CN": "MeiDay（任务管理）"
+  },
+  "description": {
+    "default": "Embed the MeiDay task manager into SiYuan, connecting to your backend at https://task.congsec.cn.",
+    "zh-CN": "在思源笔记中嵌入 MeiDay 任务管理，连接你的后端 https://task.congsec.cn。"
+  },
+  "readme": {
+    "default": "README.md",
+    "zh-CN": "README.zh-CN.md"
+  },
+  "funding": {
+    "github": "congsec"
+  },
+  "keywords": ["任务管理", "待办", "todo", "task", "meiday"]
+}

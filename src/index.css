@@ -1,0 +1,12 @@
+.meiday__wrap {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+}
+.meiday__iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
+    flex: 1;
+}
