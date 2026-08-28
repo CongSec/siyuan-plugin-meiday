@@ -13,6 +13,11 @@ export default class MeiDayPlugin extends Plugin {
 
     async onload() {
         console.log(`[${this.name}] MeiDay plugin loaded`);
+        // 注册自定义顶栏图标（Feather 风格 check-square，代表“任务清单”）
+        this.addIcons(`<svg><symbol id="iconMeiDay" viewBox="0 0 24 24">
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2" fill="none" stroke="currentColor" stroke-width="2"/>
+            <path d="M9 11l3 3L22 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </symbol></svg>`);
     }
 
     async onLayoutReady() {
