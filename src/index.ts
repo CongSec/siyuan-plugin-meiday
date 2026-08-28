@@ -3,6 +3,17 @@ import "./index.css";
 import appHtml from "./assets/app.html";
 
 /**
+ * ===== 弹窗尺寸配置 =====
+ * 改这里即可调整 MeiDay 弹窗的大小：
+ *  - DIALOG_WIDTH  : 宽度，CSS 长度，如 "940px" / "80vw"
+ *  - DIALOG_HEIGHT : 高度，CSS 长度，如 "72vh" / "600px"
+ * 注意：思源会把弹窗限制在视口宽度的 88% 以内（max-width: 88vw），
+ *       设太宽在窄屏上会被自动收窄，属正常现象。
+ */
+const DIALOG_WIDTH = "940px";
+const DIALOG_HEIGHT = "72vh";
+
+/**
  * MeiDay 思源插件：
  * 顶部图标 -> Dialog 弹窗 -> iframe(blob URL) 加载单文件构建的 MeiDay 前端，
  * 前端通过 https://task.congsec.cn 调用远端 FastAPI 后端。
@@ -57,8 +68,8 @@ export default class MeiDayPlugin extends Plugin {
         const dialog = new Dialog({
             title: "MeiDay",
             content: `<div class="meiday__wrap"><iframe class="meiday__iframe" src="${this.objectUrl}"></iframe></div>`,
-            width: "940px",
-            height: "72vh",
+            width: DIALOG_WIDTH,
+            height: DIALOG_HEIGHT,
         });
         this.dialog = dialog;
     }
