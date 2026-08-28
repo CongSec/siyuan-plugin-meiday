@@ -10,7 +10,7 @@ import appHtml from "./assets/app.html";
  * 注意：思源会把弹窗限制在视口宽度的 88% 以内（max-width: 88vw），
  *       设太宽在窄屏上会被自动收窄，属正常现象。
  */
-const DIALOG_WIDTH = "940px";
+const DIALOG_WIDTH = "84vw";
 const DIALOG_HEIGHT = "72vh";
 
 /**
