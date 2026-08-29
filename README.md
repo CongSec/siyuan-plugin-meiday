@@ -36,7 +36,7 @@ OSS Endpoint:[https://datatest.congsec.cn](https://datatest.congsec.cn)
 
 ### 多端在线秒级同步
 
-web端(https://task.congsec.cn)，APP端(下载地址:[https://github.com/CongSec/MeiDay/releases/download/V0.1.0/MeiDayV0.1.0.apk](https://github.com/CongSec/MeiDay/releases/download/V0.1.0/MeiDayV0.1.0.apk))，思源插件端均是线上OSS数据,无本地数据,秒级同步
+web端(https://task.congsec.cn)，APP端(下载地址:[https://github.com/CongSec/siyuan-plugin-meiday/releases/download/V0.2.0/MeiDay.apk](https://github.com/CongSec/siyuan-plugin-meiday/releases/download/V0.2.0/MeiDay.apk))，思源插件端均是线上OSS数据,无本地数据,秒级同步
 
 ‍
 
