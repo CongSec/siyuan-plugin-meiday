@@ -1,4 +1,4 @@
-import {Plugin, Dialog} from "siyuan";
+import {Plugin} from "siyuan";
 import "./index.css";
 import appHtml from "./assets/app.html";
 
@@ -7,45 +7,45 @@ import appHtml from "./assets/app.html";
  * 改这里即可调整 MeiDay 弹窗的大小：
  *  - DIALOG_WIDTH  : 宽度，CSS 长度，如 "940px" / "80vw"
  *  - DIALOG_HEIGHT : 高度，CSS 长度，如 "72vh" / "600px"
- * 注意：思源会把弹窗限制在视口宽度的 88% 以内（max-width: 88vw），
- *       设太宽在窄屏上会被自动收窄，属正常现象。
  */
 const DIALOG_WIDTH = "84vw";
 const DIALOG_HEIGHT = "72vh";
 
 /**
  * MeiDay 思源插件：
- * 右侧边栏（#dockRight 的图标栏）放一个 MeiDay 图标，
- * 点击后以【弹窗(Dialog)】方式打开 MeiDay 前端（iframe + blob URL），
- * 前端通过 https://task.congsec.cn 调用远端 FastAPI 后端。
+ * 右侧边栏（#dockRight 的图标栏）放一个 MeiDay 图标，点击后以【全屏遮罩 + 面板 + iframe】
+ * 方式打开 MeiDay 前端（iframe 用 srcdoc 内联 app.html），前端通过 https://task.congsec.cn
+ * 调用远端 FastAPI 后端。
  *
- * 说明：思源的右侧边栏图标点击会默认展开「停靠面板」；这里改为只放一个图标，
- *       点击直接弹窗，不占右侧栏空间（符合“图标在侧栏、打开是弹窗”的诉求）。
- *       如果以后想换成「侧边栏停靠面板」，改回 addDock 方案即可（见 README）。
+ * ===== 为什么改用 srcdoc（本版本核心修复）=====
+ * 旧版本用 blob URL 作为 iframe 的 src：blob iframe 属于「不透明源」，localStorage / IndexedDB
+ * 只是临时的，思源完全重启后全部丢失 → 退出登录、无数据缓存。
+ * 改用 srcdoc 内联后，iframe 与思源【同源】：localStorage（登录 token / 记住的密码）和
+ * IndexedDB（meiday 数据缓存）落到思源真实源，思源完全重启后登录态与缓存都能保留。
  *
- * 缓存说明：iframe 常驻（关闭弹窗只隐藏、不销毁），从 OSS 拉下来的数据
- *       会一直留在内存里，再次打开是秒开，不再重新加载。
+ * ===== 登录态双保险（plugin.storage 镜像）=====
+ * 万一思源端口变化（6806 被占用时换端口）或 localStorage 被清，iframe 里 localStorage 会丢失。
+ * 因此插件把登录态（token / 记住的密码 / 用户名）镜像保存到插件数据目录（plugin.storage，
+ * 磁盘文件），并在父窗口挂 __meiday_restore 全局；前端 main.ts 启动时若 localStorage 为空，
+ * 会从该全局恢复。端口变化 / 存储被清后依然保持登录。
+ *
+ * 缓存说明：iframe 只创建一次（srcdoc），关闭弹窗只隐藏、不销毁，再次打开秒开且状态不丢。
  */
 export default class MeiDayPlugin extends Plugin {
-    private dialog: Dialog | null = null;
-    private objectUrl: string | null = null;
+    private overlay: HTMLElement | null = null;
+    private iframe: HTMLIFrameElement | null = null;
     private railObserver: MutationObserver | null = null;
     private injectTimer: ReturnType<typeof setTimeout> | null = null;
-
-    /** 首次调用时把内联的 app.html 包成 blob URL，之后复用同一个 */
-    private ensureObjectUrl(): string {
-        if (!this.objectUrl) {
-            const blob = new Blob([appHtml], {type: "text/html;charset=utf-8"});
-            this.objectUrl = URL.createObjectURL(blob);
-        }
-        return this.objectUrl;
-    }
+    /** 登录态镜像（来自 iframe localStorage），同时落在 plugin.storage 与父窗口全局 */
+    private sessionMirror: SessionMirror | null = null;
+    private storageReady = false;
+    /** persistSessionMirror 的防抖定时器 */
+    private persistTimer: ReturnType<typeof setTimeout> | null = null;
 
     async onload() {
         console.log(`[${this.name}] MeiDay plugin loaded`);
         try {
             // 注册自定义图标（Feather 风格 check-square，代表"任务清单"）
-            // 注意：addIcons 必须传裸 <symbol>（思源会插进 <svg><defs> 内），不能包 <svg>
             this.addIcons(`<symbol id="iconMeiDay" viewBox="0 0 24 24">
                 <rect x="3" y="3" width="18" height="18" rx="2" ry="2" fill="none" stroke="currentColor" stroke-width="2"/>
                 <path d="M9 11l3 3L22 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -53,13 +53,16 @@ export default class MeiDayPlugin extends Plugin {
         } catch (e) {
             console.error(`[${this.name}] register icon failed`, e);
         }
+        // 读取上次保存在插件数据目录的登录态（端口变化 / localStorage 被清时的恢复源）
+        await this.loadStoredSession();
+        this.refreshParentRestoreGlobal();
+        // 监听 iframe（同源）对 localStorage 的写入：登录/登出/记住密码变化实时镜像到 plugin.storage
+        window.addEventListener("storage", this.onLocalStorageChange);
     }
 
     async onLayoutReady() {
-        // 把 MeiDay 图标注入右侧边栏的图标栏
         this.ensureDockIcon();
         this.watchDockRail();
-        // 兜底：若布局尚未渲染出右侧栏，稍后再试
         this.injectTimer = setTimeout(() => this.ensureDockIcon(), 1000);
     }
 
@@ -82,7 +85,7 @@ export default class MeiDayPlugin extends Plugin {
             item.addEventListener("click", (e: MouseEvent) => {
                 e.preventDefault();
                 e.stopPropagation();
-                this.openDialog();
+                void this.openDialog();
             });
             rail.appendChild(item);
         } catch (e) {
@@ -104,82 +107,155 @@ export default class MeiDayPlugin extends Plugin {
         }
     }
 
-    /**
-     * 打开 MeiDay 弹窗。
-     * 缓存策略：iframe 只在第一次创建，之后关闭弹窗只是隐藏（hideDialog），
-     * 再次打开直接显示（showDialog），iframe 内的 OSS 数据全部保留、秒开。
-     */
-    private openDialog() {
-        // 弹窗若已存在且仍在文档中 -> 直接显示，不重建 iframe
-        if (this.dialog && this.dialog.element && document.body.contains(this.dialog.element)) {
-            this.showDialog();
+    /** 打开 MeiDay 弹窗：只创建一次遮罩/iframe，之后仅切换显隐（秒开、状态不丢） */
+    private async openDialog(): Promise<void> {
+        // 打开前确保把最新登录态挂到父窗口全局（srcdoc iframe 的 main.ts 会读取它做双保险恢复）
+        await this.ensureStoredSession();
+        const overlay = this.ensureOverlay();
+        if (!document.body.contains(overlay)) {
+            document.body.append(overlay);
+        }
+        overlay.classList.add("meiday-overlay--open");
+    }
+
+    /** 隐藏弹窗（不销毁 iframe，保留内存数据缓存） */
+    private hideDialog(): void {
+        if (this.overlay) {
+            this.overlay.classList.remove("meiday-overlay--open");
+        }
+    }
+
+    /** 构建或复用遮罩层：iframe 只创建一次，之后即使被从 DOM 移除也只重新挂载、不重建 */
+    private ensureOverlay(): HTMLElement {
+        if (this.overlay) {
+            return this.overlay;
+        }
+        const overlay = document.createElement("div");
+        overlay.className = "meiday-overlay";
+        overlay.innerHTML = `
+            <div class="meiday-overlay__scrim"></div>
+            <div class="meiday-overlay__panel" style="width:${DIALOG_WIDTH};height:${DIALOG_HEIGHT};">
+                <button class="meiday-overlay__close" type="button" aria-label="关闭 MeiDay" title="关闭 MeiDay">
+                    <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg>
+                </button>
+            </div>`;
+
+        // srcdoc 内联：iframe 与思源同源 → localStorage/IndexedDB 落到思源真实源，重启保留
+        const iframe = document.createElement("iframe");
+        iframe.className = "meiday-overlay__iframe";
+        iframe.setAttribute("title", "MeiDay");
+        iframe.setAttribute("allow", "clipboard-write");
+        iframe.srcdoc = appHtml;
+        iframe.addEventListener("load", () => this.syncFromIframe());
+        overlay.querySelector(".meiday-overlay__panel")!.appendChild(iframe);
+        this.iframe = iframe;
+
+        overlay.querySelector(".meiday-overlay__scrim")!.addEventListener("click", (e: MouseEvent) => {
+            e.preventDefault();
+            e.stopPropagation();
+            this.hideDialog();
+        });
+        overlay.querySelector(".meiday-overlay__close")!.addEventListener("click", (e: MouseEvent) => {
+            e.preventDefault();
+            e.stopPropagation();
+            this.hideDialog();
+        });
+        overlay.addEventListener("keydown", (e: KeyboardEvent) => {
+            if (e.key === "Escape") {
+                this.hideDialog();
+            }
+        });
+        this.overlay = overlay;
+        return overlay;
+    }
+
+    /** ---- 登录态双保险：plugin.storage 镜像 ---- */
+
+    /** iframe（同源）写入 localStorage 时，实时把登录态镜像到 plugin.storage */
+    private onLocalStorageChange = (): void => {
+        this.syncFromIframe();
+    };
+
+    /** 读取 iframe 的 localStorage，更新内存镜像 + 父窗口全局 + plugin.storage */
+    private syncFromIframe(): void {
+        const iframe = this.iframe;
+        if (!iframe || !iframe.contentWindow) {
             return;
         }
-        // 弹窗不存在或已被外部销毁 -> 重建（blob URL 复用，不重复打包）
-        this.dialog = null;
-        const objectUrl = this.ensureObjectUrl();
-        const dialog = new Dialog({
-            title: "MeiDay",
-            content: `<div class="meiday__wrap"><iframe class="meiday__iframe" src="${objectUrl}"></iframe></div>`,
-            width: DIALOG_WIDTH,
-            height: DIALOG_HEIGHT,
-            disableClose: true, // 阻止思源默认的「销毁」式关闭，让 iframe 常驻缓存
-        });
-        // 接管右上角关闭按钮与遮罩：都改为「隐藏弹窗」而非销毁，从而保留 iframe 内的数据缓存
         try {
-            // 1) 右上角 X：disableClose 会隐藏它，这里恢复显示并绑定「隐藏」
-            const close = dialog.element.querySelector<HTMLElement>(".b3-dialog__close");
-            if (close) {
-                close.classList.remove("fn__none");
-                const newClose = close.cloneNode(true) as HTMLElement; // 克隆以丢弃原关闭事件
-                const parent = close.parentNode;
-                if (parent) {
-                    parent.replaceChild(newClose, close);
-                }
-                newClose.addEventListener("click", (e: MouseEvent) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    this.hideDialog();
-                });
+            const ls = iframe.contentWindow.localStorage;
+            const token = ls.getItem(LS_TOKEN) || "";
+            const tokenAt = Number(ls.getItem(LS_TOKEN_AT) || 0) || 0;
+            const savedPw = ls.getItem(LS_SAVED_PW) || "";
+            const savedPwAt = Number(ls.getItem(LS_SAVED_PW_AT) || 0) || 0;
+            const username = ls.getItem(LS_USER) || "";
+            if (!token && !savedPw && !username) {
+                this.sessionMirror = null;
+            } else {
+                this.sessionMirror = {
+                    token: token || undefined,
+                    tokenAt: tokenAt || undefined,
+                    savedPw: savedPw || undefined,
+                    savedPwAt: savedPwAt || undefined,
+                    username: username || undefined,
+                };
             }
-            // 2) 遮罩：点击同样「隐藏」而非销毁
-            const scrim = dialog.element.querySelector<HTMLElement>(".b3-dialog__scrim");
-            if (scrim) {
-                scrim.addEventListener("click", (e: MouseEvent) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    this.hideDialog();
-                });
+            this.refreshParentRestoreGlobal();
+            this.persistSessionMirror();
+        } catch (e) {
+            console.error(`[${this.name}] syncFromIframe failed`, e);
+        }
+    }
+
+    /** 把登录态镜像挂到父窗口全局，供 srcdoc iframe 的 main.ts 在启动时恢复 */
+    private refreshParentRestoreGlobal(): void {
+        try {
+            (window as unknown as { __meiday_restore: SessionMirror | null }).__meiday_restore = this.sessionMirror;
+        } catch (e) {
+            console.error(`[${this.name}] set __meiday_restore failed`, e);
+        }
+    }
+
+    /** 防抖写入 plugin.storage（磁盘），避免频繁 storage 事件反复写文件 */
+    private persistSessionMirror(): void {
+        if (this.persistTimer) {
+            clearTimeout(this.persistTimer);
+        }
+        this.persistTimer = setTimeout(() => {
+            this.persistTimer = null;
+            if (!this.storageReady) {
+                return;
+            }
+            try {
+                void this.saveData(SESSION_STORAGE_KEY, this.sessionMirror);
+            } catch (e) {
+                console.error(`[${this.name}] saveData session failed`, e);
+            }
+        }, 300);
+    }
+
+    /** 从插件数据目录读取登录态镜像（onload / 每次打开前兜底） */
+    private async loadStoredSession(): Promise<void> {
+        try {
+            const saved = await this.loadData(SESSION_STORAGE_KEY);
+            if (saved && typeof saved === "object") {
+                this.sessionMirror = saved as SessionMirror;
             }
         } catch (e) {
-            console.error(`[${this.name}] override close button failed`, e);
+            console.error(`[${this.name}] loadData session failed`, e);
         }
-        this.dialog = dialog;
+        this.storageReady = true;
     }
 
-    /** 显示弹窗（复用常驻 iframe，秒开） */
-    private showDialog(): void {
-        const dlg = this.dialog;
-        if (!dlg || !dlg.element) {
-            return;
+    /** 打开前兜底：确保镜像已加载，并把最新登录态挂到父窗口全局 */
+    private async ensureStoredSession(): Promise<void> {
+        if (!this.storageReady) {
+            await this.loadStoredSession();
         }
-        document.body.append(dlg.element); // 移到 body 末尾，确保显示在最上层
-        dlg.element.style.display = "";
-        dlg.element.classList.add("b3-dialog--open");
-    }
-
-    /** 隐藏弹窗（不销毁 iframe，保留 OSS 数据缓存） */
-    private hideDialog(): void {
-        const dlg = this.dialog;
-        if (!dlg || !dlg.element) {
-            return;
-        }
-        dlg.element.classList.remove("b3-dialog--open");
-        dlg.element.style.display = "none";
+        this.refreshParentRestoreGlobal();
     }
 
     async onunload() {
-        // 清理观察者与注入的图标
         if (this.railObserver) {
             this.railObserver.disconnect();
             this.railObserver = null;
@@ -188,23 +264,46 @@ export default class MeiDayPlugin extends Plugin {
             clearTimeout(this.injectTimer);
             this.injectTimer = null;
         }
+        if (this.persistTimer) {
+            clearTimeout(this.persistTimer);
+            this.persistTimer = null;
+        }
+        window.removeEventListener("storage", this.onLocalStorageChange);
         const item = document.querySelector<HTMLElement>('#dockRight .dock__items [data-plugin-meiday]');
         if (item) {
             item.remove();
         }
-        // 释放 blob URL
-        if (this.objectUrl) {
-            URL.revokeObjectURL(this.objectUrl);
-            this.objectUrl = null;
-        }
-        // 真正销毁弹窗（插件卸载时释放 iframe）
-        if (this.dialog) {
+        // 卸载插件时彻底销毁遮罩与 iframe
+        if (this.overlay) {
             try {
-                this.dialog.destroy();
+                this.overlay.remove();
             } catch (e) {
-                console.error(`[${this.name}] destroy dialog failed`, e);
+                console.error(`[${this.name}] remove overlay failed`, e);
             }
-            this.dialog = null;
+            this.overlay = null;
+            this.iframe = null;
+        }
+        // 清理父窗口全局，避免残留影响下次加载
+        try {
+            (window as unknown as { __meiday_restore?: unknown }).__meiday_restore = undefined;
+        } catch (e) {
+            /* ignore */
         }
     }
 }
+
+/** 登录态镜像结构（与前端 client.ts 里的 st_* 键对应） */
+interface SessionMirror {
+    token?: string;
+    tokenAt?: number;
+    savedPw?: string;
+    savedPwAt?: number;
+    username?: string;
+}
+
+const SESSION_STORAGE_KEY = "meiday-session.json";
+const LS_TOKEN = "st_token";
+const LS_TOKEN_AT = "st_token_at";
+const LS_SAVED_PW = "st_saved_pw";
+const LS_SAVED_PW_AT = "st_saved_pw_at";
+const LS_USER = "st_user";
