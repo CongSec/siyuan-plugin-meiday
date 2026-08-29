@@ -1,7 +1,22 @@
 # MeiDay
 
-一个注重隐私的高安全的在线轻量任务日记管理系统
-web端体验地址:https://task.congsec.cn
+**为什么又做了一个任务日记管理工具？**
+
+因为我实在受够了：要么提醒不稳定，要么没有 Web/APP 端，要么不支持买断自搭建。
+所以，我做了 MeiDay，并将其完全开源，支持自搭建。
+它和市面上的产品不太一样。现在的软件功能太多，反而成了负担。
+
+MeiDay 专注于“当下”——只做好两件事：**稳定的任务提醒，和安全的日记记录**。
+不堆砌功能，只追求最纯粹的流畅体验。
+
+
+**web端体验地址:** https://task.congsec.cn（体验账号：congsec/congsec,请不要修改密码等密钥,每小时清空测试数据）
+
+测试配置(每小时清空一次数据):
+OSS AccessKey:qpKs9nm0kUTBB1jcHWa2
+OSS SecretKey:ywyuyxdmvQNQbV0pccoNHrsHVm1Ubs6pJzCEyCqD
+OSS Bucket名称:meiday
+OSS Endpoint:[https://datatest.congsec.cn](https://datatest.congsec.cn)
 
 ![数据同步架构图优化-3b9ec276-8bc2-4175-81df-95bcf3743820](https://assets.b3logfile.com/siyuan/1714493573033/assets/数据同步架构图优化-3b9ec276-8bc2-4175-81df-95bcf3743820-20260828225217-zo7jyz5.jpg)
 
