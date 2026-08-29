@@ -4,8 +4,12 @@
   "url": "https://github.com/CongSec/siyuan-plugin-meiday",
   "version": "0.1.0",
   "minAppVersion": "3.0.0",
-  "backends": ["all"],
-  "frontends": ["all"],
+  "backends": [
+    "all"
+  ],
+  "frontends": [
+    "all"
+  ],
   "disabledInPublish": false,
   "displayName": {
     "default": "MeiDay",
@@ -17,10 +21,20 @@
   },
   "readme": {
     "default": "README.md",
-    "zh-CN": "README.zh-CN.md"
+    "zh-CN": "README.md",
+    "en-US": "README.EN.md"
   },
   "funding": {
     "github": "congsec"
   },
-  "keywords": ["任务管理", "待办", "todo", "task", "meiday", "日记", "加密", "隐私"]
+  "keywords": [
+    "任务管理",
+    "待办",
+    "todo",
+    "task",
+    "meiday",
+    "日记",
+    "加密",
+    "隐私"
+  ]
 }
