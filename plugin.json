@@ -16,8 +16,8 @@
     "zh-CN": "MeiDay（每日任务日记管理）"
   },
   "description": {
-    "default": "A lightweight, privacy-preserving task diary management system with enhanced security",
-    "zh-CN": "在思源笔记中嵌入 MeiDay 任务管理，连接你的后端 https://task.congsec.cn。"
+    "default": "MeiDay is a cross-platform (Web, App) task and diary manager that delivers a smoother experience and stronger security.",
+    "zh-CN": "MeiDay 是一款跨端（Web、App）任务与日记管理工具，让记录更流畅，让数据更安全。"
   },
   "readme": {
     "default": "README.md",
@@ -30,6 +30,7 @@
   "keywords": [
     "任务管理",
     "待办",
+    "在线",
     "todo",
     "task",
     "meiday",
