@@ -30,10 +30,17 @@ const DIALOG_HEIGHT = "72vh";
  * 会从该全局恢复。端口变化 / 存储被清后依然保持登录。
  *
  * 缓存说明：iframe 只创建一次（srcdoc），关闭弹窗只隐藏、不销毁，再次打开秒开且状态不丢。
+ *
+ * ===== 弹窗 UI（高级版）=====
+ * - 玻璃拟态遮罩：品牌色渐变 + backdrop blur，明暗主题跟随思源
+ * - 顶部标题栏：品牌 logo + 名称 + 最大化/关闭控件，按住可拖拽移动
+ * - 平滑开合动画、加载 spinner
  */
 export default class MeiDayPlugin extends Plugin {
     private overlay: HTMLElement | null = null;
+    private panel: HTMLElement | null = null;
     private iframe: HTMLIFrameElement | null = null;
+    private maximizeBtn: HTMLElement | null = null;
     private railObserver: MutationObserver | null = null;
     private injectTimer: ReturnType<typeof setTimeout> | null = null;
     /** 登录态镜像（来自 iframe localStorage），同时落在 plugin.storage 与父窗口全局 */
@@ -41,6 +48,9 @@ export default class MeiDayPlugin extends Plugin {
     private storageReady = false;
     /** persistSessionMirror 的防抖定时器 */
     private persistTimer: ReturnType<typeof setTimeout> | null = null;
+    /** 拖拽移动状态 */
+    private dragging = false;
+    private dragStart = {x: 0, y: 0, left: 0, top: 0};
 
     async onload() {
         console.log(`[${this.name}] MeiDay plugin loaded`);
@@ -116,6 +126,11 @@ export default class MeiDayPlugin extends Plugin {
             document.body.append(overlay);
         }
         overlay.classList.add("meiday-overlay--open");
+        // 聚焦面板，让 Esc 在打开后立即生效（焦点进入 iframe 后由应用内部处理）
+        const panelEl = overlay.querySelector<HTMLElement>(".meiday-overlay__panel");
+        if (panelEl) {
+            try { panelEl.focus({ preventScroll: true }); } catch (err) { /* ignore */ }
+        }
     }
 
     /** 隐藏弹窗（不销毁 iframe，保留内存数据缓存） */
@@ -123,6 +138,25 @@ export default class MeiDayPlugin extends Plugin {
         if (this.overlay) {
             this.overlay.classList.remove("meiday-overlay--open");
         }
+    }
+
+    /** 最大化 / 还原：切换 class，并同步控件图标 */
+    private toggleMaximize(): void {
+        const overlay = this.overlay;
+        const panel = this.panel;
+        if (!overlay || !panel || !this.maximizeBtn) {
+            return;
+        }
+        const maximized = overlay.classList.toggle("meiday-overlay--maximized");
+        if (maximized) {
+            // 最大化时清掉拖拽产生的 inline 定位，回到居中
+            panel.style.position = "";
+            panel.style.left = "";
+            panel.style.top = "";
+            panel.style.margin = "";
+        }
+        this.maximizeBtn.innerHTML = maximized ? ICON_RESTORE : ICON_MAXIMIZE;
+        this.maximizeBtn.title = maximized ? "还原窗口" : "最大化";
     }
 
     /** 构建或复用遮罩层：iframe 只创建一次，之后即使被从 DOM 移除也只重新挂载、不重建 */
@@ -134,11 +168,31 @@ export default class MeiDayPlugin extends Plugin {
         overlay.className = "meiday-overlay";
         overlay.innerHTML = `
             <div class="meiday-overlay__scrim"></div>
-            <div class="meiday-overlay__panel" style="width:${DIALOG_WIDTH};height:${DIALOG_HEIGHT};">
-                <button class="meiday-overlay__close" type="button" aria-label="关闭 MeiDay" title="关闭 MeiDay">
-                    <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg>
-                </button>
+            <div class="meiday-overlay__panel" tabindex="-1" style="width:${DIALOG_WIDTH};height:${DIALOG_HEIGHT};">
+                <div class="meiday-overlay__bar">
+                    <div class="meiday-overlay__brand">
+                        <span class="meiday-overlay__logo">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="3" y="3" width="18" height="18" rx="3.5"/>
+                                <path d="M8.5 12.5l2.5 2.5 5-5.5"/>
+                            </svg>
+                        </span>
+                        <span class="meiday-overlay__titles">
+                            <span class="meiday-overlay__title">MeiDay</span>
+                            <span class="meiday-overlay__subtitle">任务 · 日记 · 时间胶囊</span>
+                        </span>
+                    </div>
+                    <div class="meiday-overlay__spacer"></div>
+                    <div class="meiday-overlay__controls">
+                        <button class="meiday-overlay__btn meiday-overlay__maximize" type="button" title="最大化" aria-label="最大化">${ICON_MAXIMIZE}</button>
+                        <button class="meiday-overlay__btn meiday-overlay__close" type="button" title="关闭（Esc）" aria-label="关闭 MeiDay">${ICON_CLOSE}</button>
+                    </div>
+                </div>
+                <div class="meiday-overlay__loading"><span class="meiday-overlay__spinner"></span></div>
             </div>`;
+
+        this.panel = overlay.querySelector(".meiday-overlay__panel");
+        this.maximizeBtn = overlay.querySelector(".meiday-overlay__maximize");
 
         // srcdoc 内联：iframe 与思源同源 → localStorage/IndexedDB 落到思源真实源，重启保留
         const iframe = document.createElement("iframe");
@@ -146,9 +200,18 @@ export default class MeiDayPlugin extends Plugin {
         iframe.setAttribute("title", "MeiDay");
         iframe.setAttribute("allow", "clipboard-write");
         iframe.srcdoc = appHtml;
-        iframe.addEventListener("load", () => this.syncFromIframe());
+        iframe.addEventListener("load", () => {
+            const loading = overlay.querySelector(".meiday-overlay__loading");
+            if (loading) {
+                loading.classList.add("meiday-overlay__loading--hidden");
+            }
+            this.syncFromIframe();
+        });
         overlay.querySelector(".meiday-overlay__panel")!.appendChild(iframe);
         this.iframe = iframe;
+
+        // 拖拽移动（标题栏；最大化状态下禁拖）
+        this.bindDrag(overlay.querySelector(".meiday-overlay__bar")!);
 
         overlay.querySelector(".meiday-overlay__scrim")!.addEventListener("click", (e: MouseEvent) => {
             e.preventDefault();
@@ -160,6 +223,11 @@ export default class MeiDayPlugin extends Plugin {
             e.stopPropagation();
             this.hideDialog();
         });
+        overlay.querySelector(".meiday-overlay__maximize")!.addEventListener("click", (e: MouseEvent) => {
+            e.preventDefault();
+            e.stopPropagation();
+            this.toggleMaximize();
+        });
         overlay.addEventListener("keydown", (e: KeyboardEvent) => {
             if (e.key === "Escape") {
                 this.hideDialog();
@@ -167,6 +235,59 @@ export default class MeiDayPlugin extends Plugin {
         });
         this.overlay = overlay;
         return overlay;
+    }
+
+    /** 标题栏拖拽移动面板（Pointer Capture 保证拖过 iframe 也能持续跟踪，并限制在可视区内） */
+    private bindDrag(bar: HTMLElement): void {
+        const overlay = this.overlay;
+        const panel = this.panel;
+        if (!overlay || !panel) {
+            return;
+        }
+        bar.addEventListener("pointerdown", (e: PointerEvent) => {
+            if ((e.target as HTMLElement).closest("button")) {
+                return; // 控件上的按下不触发拖动
+            }
+            if (overlay.classList.contains("meiday-overlay--maximized")) {
+                return;
+            }
+            const rect = panel.getBoundingClientRect();
+            this.dragging = true;
+            this.dragStart = {x: e.clientX, y: e.clientY, left: rect.left, top: rect.top};
+            panel.style.position = "fixed";
+            panel.style.left = `${rect.left}px`;
+            panel.style.top = `${rect.top}px`;
+            panel.style.margin = "0";
+            panel.style.transition = "none";
+            try {
+                bar.setPointerCapture(e.pointerId);
+            } catch (err) {
+                /* 忽略：捕获失败时退化为跟随移动 */
+            }
+            e.preventDefault();
+        });
+        bar.addEventListener("pointermove", (e: PointerEvent) => {
+            if (!this.dragging) {
+                return;
+            }
+            const dx = e.clientX - this.dragStart.x;
+            const dy = e.clientY - this.dragStart.y;
+            const w = panel.offsetWidth;
+            const h = panel.offsetHeight;
+            const left = Math.max(12, Math.min(this.dragStart.left + dx, window.innerWidth - w - 12));
+            const top = Math.max(12, Math.min(this.dragStart.top + dy, window.innerHeight - h - 12));
+            panel.style.left = `${left}px`;
+            panel.style.top = `${top}px`;
+        });
+        const endDrag = (): void => {
+            if (!this.dragging) {
+                return;
+            }
+            this.dragging = false;
+            panel.style.transition = "";
+        };
+        bar.addEventListener("pointerup", endDrag);
+        bar.addEventListener("pointercancel", endDrag);
     }
 
     /** ---- 登录态双保险：plugin.storage 镜像 ---- */
@@ -281,7 +402,9 @@ export default class MeiDayPlugin extends Plugin {
                 console.error(`[${this.name}] remove overlay failed`, e);
             }
             this.overlay = null;
+            this.panel = null;
             this.iframe = null;
+            this.maximizeBtn = null;
         }
         // 清理父窗口全局，避免残留影响下次加载
         try {
@@ -307,3 +430,8 @@ const LS_TOKEN_AT = "st_token_at";
 const LS_SAVED_PW = "st_saved_pw";
 const LS_SAVED_PW_AT = "st_saved_pw_at";
 const LS_USER = "st_user";
+
+/* ---- 窗口控件图标（Feather 风格） ---- */
+const ICON_CLOSE = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>`;
+const ICON_MAXIMIZE = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>`;
+const ICON_RESTORE = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"/></svg>`;
