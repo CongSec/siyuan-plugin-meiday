@@ -4,22 +4,22 @@
 
 **为什么又做一个任务日记工具？**
 
-因为目前任务管理软件，要么提醒渠道不顺手，要么不支持买断/自搭建，要么数据不在自己手里  
-所以，我做了 MeiDay，并将其开源、可自搭建，并补上 GitHub/Gitee、文档、部署教程  
+因为目前任务管理软件，要么提醒渠道不顺手，要么不支持买断/自搭建，要么数据不在自己手里
+所以，我做了 MeiDay，并将其开源、可自搭建，并补上 GitHub/Gitee、文档、部署教程
 它和市面上的产品不太一样。现在的软件功能太多，反而成了负担。
 
 MeiDay 专注于“当下”——只做好一件事：**稳定流畅安全的任务日记记录**。
 
 不堆砌功能，只追求最纯粹的流畅体验。
 
-> **web端体验地址:**  https://task.congsec.cn
+> **web端体验地址:** https://task.congsec.cn
 >
-> **体验测试账号(只读):**  congsec/1234578  
-> **压力测试账号(只读):**  test/12345678
+> **体验测试账号(只读):** congsec/1234578
+> **压力测试账号(只读):** test/12345678
 >
-> OSS AccessKey:LTAI5t88s2Wq3vrhS71vKru2  
-> OSS SecretKey:JfkgheFQRRN7InfV4wR0rZY3NqdLIy  
-> OSS Bucket名称:congsec2  
+> OSS AccessKey:LTAI5t88s2Wq3vrhS71vKru2
+> OSS SecretKey:JfkgheFQRRN7InfV4wR0rZY3NqdLIy
+> OSS Bucket名称:congsec2
 > OSS Endpoint:oss-cn-shenzhen.aliyuncs.com
 
 ## 功能特点
@@ -55,8 +55,6 @@ MeiDay 专注于“当下”——只做好一件事：**稳定流畅安全的�
 ### 多端实时同步
 
 Web 端(https://task.congsec.cn)、Android App、思源笔记插件、Windows 桌面小组件共用同一份云端数据，**无本地数据、秒级同步**，任何一端改动，其他端即刻更新。
-
-<video controls="controls" src="https://b3logfile.com/file/2026/10/siyuan/1714493573033/assets/bandicam_2026-10-02_15-23-55-198-20261002152929-ocgcdov.mp4"></video>
 
 **思源笔记插件端**
 
@@ -109,52 +107,3 @@ Windows 桌面可置顶显示今日未完成任务，截图或视频会议时自
 ![image](https://b3logfile.com/file/2026/10/siyuan/1714493573033/assets/image-20260828222815-q3zqnh2.png)
 
 ![image](https://b3logfile.com/file/2026/10/siyuan/1714493573033/assets/image-20260828222817-50vouem.png)
-
-## 自搭建教程
-
-### 前置要求
-
-- Node.js 20+
-- Python 3.10+
-- 阿里云 OSS 账号和 AccessKey
-- QQ 邮箱或其他 SMTP 服务
-
-### 后端
-
-windows
-
-```python
-cd backend
-# 创建虚拟环境
-python -m venv .venv
-# 激活虚拟环境
-.venv\Scripts\activate
-# 安装依赖
-pip install -r requirements.txt
-.venv\Scripts\python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --no-proxy-headers
-```
-
-Linux:
-
-```python
-cd backend
-# 创建虚拟环境
-python3 -m venv .venv
-# 激活虚拟环境
-source .venv/bin/activate
-# 安装依赖
-pip install -r requirements.txt
-# 后台运行
-nohup .venv/bin/python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --no-proxy-headers > backend.log 2>&1 &
-```
-
-### 前端
-
-```bash
-cd frontend
-
-# 安装依赖
-npm install
-# 启动前端,如果使用web端的话,请使用npm run build:web
-npm run dev
-```
