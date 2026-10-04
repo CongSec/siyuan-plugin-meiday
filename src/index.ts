@@ -45,9 +45,13 @@ export default class MeiDayPlugin extends Plugin {
     private injectTimer: ReturnType<typeof setTimeout> | null = null;
     /** 登录态镜像（来自 iframe localStorage），同时落在 plugin.storage 与父窗口全局 */
     private sessionMirror: SessionMirror | null = null;
+    /** 服务器配置镜像（来自 iframe localStorage 的 st_servers / st_server_active），双保险持久化 */
+    private configMirror: ServerConfigMirror | null = null;
     private storageReady = false;
     /** persistSessionMirror 的防抖定时器 */
     private persistTimer: ReturnType<typeof setTimeout> | null = null;
+    /** persistConfigMirror 的防抖定时器 */
+    private configPersistTimer: ReturnType<typeof setTimeout> | null = null;
     /** 拖拽移动状态 */
     private dragging = false;
     private dragStart = {x: 0, y: 0, left: 0, top: 0};
@@ -63,9 +67,10 @@ export default class MeiDayPlugin extends Plugin {
         } catch (e) {
             console.error(`[${this.name}] register icon failed`, e);
         }
-        // 读取上次保存在插件数据目录的登录态（端口变化 / localStorage 被清时的恢复源）
+        // 读取上次保存在插件数据目录的登录态/服务器配置（端口变化 / localStorage 被清时的恢复源）
         await this.loadStoredSession();
         this.refreshParentRestoreGlobal();
+        this.refreshParentConfigGlobal();
         // 监听 iframe（同源）对 localStorage 的写入：登录/登出/记住密码变化实时镜像到 plugin.storage
         window.addEventListener("storage", this.onLocalStorageChange);
     }
@@ -321,8 +326,29 @@ export default class MeiDayPlugin extends Plugin {
                     username: username || undefined,
                 };
             }
+            // 服务器配置镜像：st_servers（JSON 数组）/ st_server_active
+            const serversRaw = ls.getItem(LS_SERVERS) || "";
+            const active = ls.getItem(LS_ACTIVE) || "";
+            let servers: string[] = [];
+            if (serversRaw) {
+                try {
+                    const parsed = JSON.parse(serversRaw);
+                    if (Array.isArray(parsed)) {
+                        servers = parsed.map((u) => String(u)).filter(Boolean);
+                    }
+                } catch (e) {
+                    /* 忽略损坏的 JSON */
+                }
+            }
+            if (!servers.length && !active) {
+                this.configMirror = null;
+            } else {
+                this.configMirror = { servers: servers.length ? servers : undefined, active: active || undefined };
+            }
             this.refreshParentRestoreGlobal();
+            this.refreshParentConfigGlobal();
             this.persistSessionMirror();
+            this.persistConfigMirror();
         } catch (e) {
             console.error(`[${this.name}] syncFromIframe failed`, e);
         }
@@ -334,6 +360,15 @@ export default class MeiDayPlugin extends Plugin {
             (window as unknown as { __meiday_restore: SessionMirror | null }).__meiday_restore = this.sessionMirror;
         } catch (e) {
             console.error(`[${this.name}] set __meiday_restore failed`, e);
+        }
+    }
+
+    /** 把服务器配置镜像挂到父窗口全局，供 srcdoc iframe 的 main.ts 在启动时恢复 */
+    private refreshParentConfigGlobal(): void {
+        try {
+            (window as unknown as { __meiday_config: ServerConfigMirror | null }).__meiday_config = this.configMirror;
+        } catch (e) {
+            console.error(`[${this.name}] set __meiday_config failed`, e);
         }
     }
 
@@ -355,6 +390,24 @@ export default class MeiDayPlugin extends Plugin {
         }, 300);
     }
 
+    /** 防抖写入服务器配置镜像到 plugin.storage（磁盘） */
+    private persistConfigMirror(): void {
+        if (this.configPersistTimer) {
+            clearTimeout(this.configPersistTimer);
+        }
+        this.configPersistTimer = setTimeout(() => {
+            this.configPersistTimer = null;
+            if (!this.storageReady) {
+                return;
+            }
+            try {
+                void this.saveData(CONFIG_STORAGE_KEY, this.configMirror);
+            } catch (e) {
+                console.error(`[${this.name}] saveData config failed`, e);
+            }
+        }, 300);
+    }
+
     /** 从插件数据目录读取登录态镜像（onload / 每次打开前兜底） */
     private async loadStoredSession(): Promise<void> {
         try {
@@ -362,18 +415,23 @@ export default class MeiDayPlugin extends Plugin {
             if (saved && typeof saved === "object") {
                 this.sessionMirror = saved as SessionMirror;
             }
+            const config = await this.loadData(CONFIG_STORAGE_KEY);
+            if (config && typeof config === "object") {
+                this.configMirror = config as ServerConfigMirror;
+            }
         } catch (e) {
             console.error(`[${this.name}] loadData session failed`, e);
         }
         this.storageReady = true;
     }
 
-    /** 打开前兜底：确保镜像已加载，并把最新登录态挂到父窗口全局 */
+    /** 打开前兜底：确保镜像已加载，并把最新登录态/服务器配置挂到父窗口全局 */
     private async ensureStoredSession(): Promise<void> {
         if (!this.storageReady) {
             await this.loadStoredSession();
         }
         this.refreshParentRestoreGlobal();
+        this.refreshParentConfigGlobal();
     }
 
     async onunload() {
@@ -388,6 +446,10 @@ export default class MeiDayPlugin extends Plugin {
         if (this.persistTimer) {
             clearTimeout(this.persistTimer);
             this.persistTimer = null;
+        }
+        if (this.configPersistTimer) {
+            clearTimeout(this.configPersistTimer);
+            this.configPersistTimer = null;
         }
         window.removeEventListener("storage", this.onLocalStorageChange);
         const item = document.querySelector<HTMLElement>('#dockRight .dock__items [data-plugin-meiday]');
@@ -412,6 +474,11 @@ export default class MeiDayPlugin extends Plugin {
         } catch (e) {
             /* ignore */
         }
+        try {
+            (window as unknown as { __meiday_config?: unknown }).__meiday_config = undefined;
+        } catch (e) {
+            /* ignore */
+        }
     }
 }
 
@@ -424,12 +491,21 @@ interface SessionMirror {
     username?: string;
 }
 
+/** 服务器配置镜像结构（与前端 utils/serverConfig.ts 里的 st_* 键对应） */
+interface ServerConfigMirror {
+    servers?: string[];
+    active?: string;
+}
+
 const SESSION_STORAGE_KEY = "meiday-session.json";
+const CONFIG_STORAGE_KEY = "meiday-config.json";
 const LS_TOKEN = "st_token";
 const LS_TOKEN_AT = "st_token_at";
 const LS_SAVED_PW = "st_saved_pw";
 const LS_SAVED_PW_AT = "st_saved_pw_at";
 const LS_USER = "st_user";
+const LS_SERVERS = "st_servers";
+const LS_ACTIVE = "st_server_active";
 
 /* ---- 窗口控件图标（Feather 风格） ---- */
 const ICON_CLOSE = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>`;
