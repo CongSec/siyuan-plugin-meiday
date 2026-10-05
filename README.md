@@ -4,22 +4,22 @@
 
 **为什么又做一个任务日记工具？**
 
-因为目前任务管理软件，要么提醒渠道不顺手，要么不支持买断/自搭建，要么数据不在自己手里
-所以，我做了 MeiDay，并将其开源、可自搭建，并补上 GitHub/Gitee、文档、部署教程
+因为目前任务管理软件，要么提醒渠道不顺手，要么不支持买断/自搭建，要么数据不在自己手里  
+所以，我做了 MeiDay，并将其开源、可自搭建，并补上 GitHub/Gitee、文档、部署教程  
 它和市面上的产品不太一样。现在的软件功能太多，反而成了负担。
 
 MeiDay 专注于“当下”——只做好一件事：**稳定流畅安全的任务日记记录**。
 
 不堆砌功能，只追求最纯粹的流畅体验。
 
-> **web端体验地址:** https://task.congsec.cn
+> **web端体验地址:**  [https://task.congsec.cn](https://task.congsec.cn)
 >
-> **体验测试账号(只读):** congsec/1234578
-> **压力测试账号(只读):** test/12345678
+> **体验测试账号(只读):**  congsec/1234578  
+> **压力测试账号(只读):**  test/12345678
 >
-> OSS AccessKey:LTAI5t88s2Wq3vrhS71vKru2
-> OSS SecretKey:JfkgheFQRRN7InfV4wR0rZY3NqdLIy
-> OSS Bucket名称:congsec2
+> OSS AccessKey:LTAI5t88s2Wq3vrhS71vKru2  
+> OSS SecretKey:JfkgheFQRRN7InfV4wR0rZY3NqdLIy  
+> OSS Bucket名称:congsec2  
 > OSS Endpoint:oss-cn-shenzhen.aliyuncs.com
 
 ## 功能特点
@@ -54,7 +54,7 @@ MeiDay 专注于“当下”——只做好一件事：**稳定流畅安全的�
 
 ### 多端实时同步
 
-Web 端(https://task.congsec.cn)、Android App、思源笔记插件、Windows 桌面小组件共用同一份云端数据，**无本地数据、秒级同步**，任何一端改动，其他端即刻更新。
+Web 端(https://task.congsec.cn)、Android App、思源笔记插件、Windows 桌面小组件共用同一份云端数据，**无本地数据、秒级同步**，任何一端改动，其他端即刻更新。支持docker一键部署
 
 **思源笔记插件端**
 
@@ -107,3 +107,9 @@ Windows 桌面可置顶显示今日未完成任务，截图或视频会议时自
 ![image](https://b3logfile.com/file/2026/10/siyuan/1714493573033/assets/image-20260828222815-q3zqnh2.png)
 
 ![image](https://b3logfile.com/file/2026/10/siyuan/1714493573033/assets/image-20260828222817-50vouem.png)
+
+### docker一键部署
+
+支持docker一键部署启动后端,直接使用`docker run -d --name meiday --restart unless-stopped -p 8001:8000 -e FRONTEND_ORIGINS="http://localhost:5173,http://localhost,https://task.congsec.cn" -v meiday_data:/data crpi-8r9w3eevpt68aj3u.cn-hangzhou.personal.cr.aliyuncs.com/congsec/meiday:latest`命令即可
+
+‍
