@@ -1,5 +1,5 @@
 # ============================================================
-# siyuan-plugin-meiday 仓库：每次 push 到 main 自动构建 package.zip 并发布到 GitHub Release
+# siyuan-plugin-meiday 仓库：手动触发时构建 package.zip 并发布到 GitHub Release
 # 版本号规则：在最近一个 v* 标签上 +0.1.0（v1.6.0 -> v1.7.0），
 # 仓库没有标签时从 v1.6.0 开始；也可手动触发时指定版本。
 # 依赖：无需额外 Secrets（用默认 GITHUB_TOKEN 即可）。
@@ -7,9 +7,6 @@
 name: Build & Release (package.zip)
 
 on:
-  push:
-    branches:
-      - main
   workflow_dispatch:
     inputs:
       version:
