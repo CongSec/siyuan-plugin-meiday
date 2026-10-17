@@ -1,6 +1,6 @@
 {
   "name": "siyuan-plugin-meiday",
-  "version": "1.8.2",
+  "version": "1.8.3",
   "description": "SiYuan plugin that embeds the MeiDay task manager, connecting to your backend at https://task.congsec.cn",
   "main": "dist/index.js",
   "scripts": {
